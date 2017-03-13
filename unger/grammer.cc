@@ -2,9 +2,14 @@
 
 #include <string>
 #include <vector>
+#include <map>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 using std::string;
 using std::vector;
+using std::map;
 
 namespace str {
 
@@ -51,18 +56,30 @@ class Symbol {
  public:
   enum class Type {term, no_term};
 
+  Symbol() = default;
+
   explicit Symbol(const string& v) {
-    if (v[0] == '\'') {
+    string s(str::Trim(const_cast<char*>(v.c_str())));
+
+    if (s[0] == '\'') {
       type_ = Type::term;
-      v_ = v.substr(1, v.size() - 2);
+      v_ = s.substr(1, s.size() - 2);
     } else {
       type_ = Type::no_term;
-      v_ = v;
+      v_ = s;
     }
   }
 
   Type type() const { return type_; }
   const string& v() const { return v_; }
+
+  friend bool operator < (const Symbol& lhs, const Symbol& rhs) {
+    return lhs.v_ < rhs.v_;
+  }
+
+  friend bool operator == (const Symbol& lhs, const Symbol& rhs) {
+    return (lhs.type_ == rhs.type_) && (lhs.v_ == rhs.v_); 
+  }
 
  private:
   Type type_;
@@ -71,6 +88,7 @@ class Symbol {
 
 class Rule {
  public:
+  Rule() = default;
   Rule(const string& lhs, const string& rhs)
       : lhs_(lhs) {
     ParseRHS(rhs);
@@ -104,10 +122,55 @@ class Rule {
 };
 
 class Grammer {
+ public:
+  explicit Grammer(const string& file) {
+    std::ifstream ifs(file.c_str());
 
+    string line;
+    bool first_line = true;
+    while (getline(ifs, line)) {
+      size_t l = line.find_first_of("->");
+      string lhs = line.substr(0, l-1);
+      string rhs = line.substr(l+2);
+
+      Rule rule(lhs, rhs);
+      rules_[rule.lhs()] = rule;
+
+      if (first_line) {
+        first_line = false;
+        start_ = rule.lhs();
+      }
+    }
+  }
+
+  string DebugString() const {
+    std::stringstream ss;
+    ss << "start: " << start_.v() << "\n";
+    for (const auto& rule : rules_) {
+      ss << rule.first.v() << "->";
+      for (const auto& r : rule.second.derivations()) {
+        for (const auto& s : r) {
+          ss << s.v() << " ";
+        }
+        ss.seekp(-1, ss.cur);
+        ss << "|";
+      }
+      ss.seekp(-1, ss.cur);
+      ss << "\n";
+    }
+
+    return ss.str();
+  }
+
+
+ private:
+  Symbol start_;
+  map<Symbol, Rule> rules_;
 };
 
 int main(int argc, char *argv[]) {
+  Grammer gramer(argv[1]);
 
+  std::cout << gramer.DebugString() << std::endl;
   return 0;
 }
