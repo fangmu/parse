@@ -1,5 +1,5 @@
-main: grammer.cc
-	g++ -std=c++11 -o $@ $<
+main: parser.cc
+	g++ -Wall -std=c++11 -g -o $@ $<
 
 clean:
 	rm -rf main
